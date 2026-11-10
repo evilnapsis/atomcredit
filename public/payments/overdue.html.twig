@@ -1,0 +1,192 @@
+{% extends "layouts/main.html.twig" %}
+
+{% block title %}Pagos Atrasados - AtomCredit{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h1 class="h3 fw-bold mb-0">Pagos Atrasados</h1>
+                <p class="text-muted small mb-0">Listado de cuotas que han superado su fecha límite de pago</p>
+            </div>
+            <div class="ms-auto d-flex gap-2">
+                <a href="{{ base_url }}/loans?status=overdue" class="btn btn-outline-danger fw-bold">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Ver Préstamos en Mora
+                </a>
+            </div>
+        </div>
+
+        <!-- Widgets de resumen de atrasos -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4 d-flex align-items-center">
+                        <div class="p-3 rounded-3 me-3" style="background:#fee2e2; color:#ef4444;">
+                            <i class="bi bi-calendar-x fs-3"></i>
+                        </div>
+                        <div>
+                            <div class="h3 fw-bold mb-0 text-danger">{{ count_schedules }}</div>
+                            <div class="text-muted small fw-bold text-uppercase">Cuotas Vencidas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4 d-flex align-items-center">
+                        <div class="p-3 rounded-3 me-3" style="background:#fef3c7; color:#d97706;">
+                            <i class="bi bi-cash-stack fs-3"></i>
+                        </div>
+                        <div>
+                            <div class="h3 fw-bold mb-0 text-warning">{{ currency }}{{ total_balance|number_format(2) }}</div>
+                            <div class="text-muted small fw-bold text-uppercase">Saldo Total Vencido</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de cuotas atrasadas -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 datatable">
+                        <thead class="bg-light text-muted small">
+                            <tr>
+                                <th class="ps-4">Cuota</th>
+                                <th>Cliente</th>
+                                <th>Teléfono</th>
+                                <th>Préstamo</th>
+                                <th>Vencimiento</th>
+                                <th>Días de Atraso</th>
+                                <th>Saldo Cuota</th>
+                                <th class="pe-4 text-end">Acceso Rápido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in schedules %}
+                            {% set overdue_days = s.getOverdueDays() %}
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="badge bg-danger text-white fw-bold">#{{ s.installment_number }}</span>
+                                </td>
+                                <td>
+                                    <div class="fw-bold">{{ s.client_name }} {{ s.client_lastname }}</div>
+                                    <small class="text-muted">{{ s.client_document ?: 'Sin documento' }}</small>
+                                </td>
+                                <td>
+                                    {% if s.client_phone %}
+                                    <a href="tel:{{ s.client_phone }}" class="text-decoration-none small text-secondary">
+                                        <i class="bi bi-telephone me-1"></i>{{ s.client_phone }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ base_url }}/loans/{{ s.loan_id }}" class="fw-bold text-indigo text-decoration-none">
+                                        #{{ s.loan_id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="text-danger fw-semibold">{{ s.due_date|date("d/m/Y") }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 fw-bold">
+                                        {{ overdue_days }} día{{ overdue_days != 1 ? 's' : '' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold fs-6 text-danger">{{ currency }}{{ s.balance|number_format(2) }}</span>
+                                </td>
+                                <td class="pe-4 text-end">
+                                    <button type="button" class="btn btn-sm btn-danger text-white fw-bold shadow-sm px-3"
+                                            onclick="openOverduePayModal({{ s.loan_id }}, {{ s.id }}, '{{ s.client_name }} {{ s.client_lastname }}', {{ s.installment_number }}, {{ s.balance }})">
+                                        <i class="bi bi-cash me-1"></i> Cobrar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Cobro Rápido -->
+<div class="modal fade" id="overduePayModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px;">
+            <div class="modal-header bg-danger text-white py-3">
+                <h5 class="modal-title fw-bold mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Cobro de Cuota Atrasada
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ base_url }}/loans/pay" method="POST" id="overduePayForm">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="loan_id" id="modal_loan_id">
+                    <input type="hidden" name="loan_schedule_id" id="modal_schedule_id">
+                    <input type="hidden" name="redirect_to" value="{{ base_url }}/payments/overdue">
+
+                    <div class="mb-3 p-3 bg-light rounded-3">
+                        <div class="small text-muted fw-bold text-uppercase mb-1">Cliente & Cuota</div>
+                        <div class="fw-bold fs-6 text-dark" id="modal_client_info">-</div>
+                        <div class="text-muted small" id="modal_cuota_info">-</div>
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between small">
+                            <span class="text-muted">Saldo a Cobrar:</span>
+                            <span class="text-danger fw-bold fs-6" id="modal_balance_txt">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Monto a Cobrar ({{ currency }}) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0.01" name="amount" id="modal_amount" class="form-control form-control-lg fw-bold text-danger" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Forma de Pago <span class="text-danger">*</span></label>
+                        <select name="payment_method_id" class="form-select form-select-lg" required>
+                            {% for pm in payment_methods %}
+                            <option value="{{ pm.id }}">{{ pm.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">Notas u Observaciones</label>
+                        <textarea name="notes" id="modal_notes" class="form-control" rows="2" placeholder="Ej. Pago en caja o transferencia"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3">
+                    <button type="button" class="btn btn-light fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger text-white fw-bold px-4">
+                        <i class="bi bi-check-lg me-1"></i> Confirmar Cobro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openOverduePayModal(loanId, scheduleId, clientName, installmentNum, balance) {
+    document.getElementById('modal_loan_id').value = loanId;
+    document.getElementById('modal_schedule_id').value = scheduleId;
+    document.getElementById('modal_client_info').innerText = clientName;
+    document.getElementById('modal_cuota_info').innerText = 'Préstamo #' + loanId + ' — Cuota #' + installmentNum;
+    document.getElementById('modal_balance_txt').innerText = '{{ currency }}' + Number(balance).toFixed(2);
+
+    document.getElementById('modal_amount').value = Number(balance).toFixed(2);
+    document.getElementById('modal_notes').value = 'Pago cuota atrasada #' + installmentNum;
+
+    const modal = new bootstrap.Modal(document.getElementById('overduePayModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

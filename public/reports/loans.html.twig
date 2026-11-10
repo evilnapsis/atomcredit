@@ -1,0 +1,140 @@
+{% extends "layouts/main.html.twig" %}
+
+{% set active_menu = 'reports_loans' %}
+
+{% block title %}Reporte de Préstamos - AtomCredit{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <h1 class="h3 fw-bold text-indigo-900 mb-0">Reporte de Préstamos por Rango de Fechas</h1>
+            <p class="text-muted small mb-0">Consulte y exporte el historial de créditos otorgados en el período seleccionado.</p>
+        </div>
+        <div>
+            <a href="{{ base_url }}/reports/loans/pdf?start_date={{ start_date }}&end_date={{ end_date }}&status={{ status }}&client_id={{ client_id }}" target="_blank" class="btn btn-danger shadow-sm fw-bold px-3">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Descargar PDF
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Búsqueda -->
+<div class="card border-0 shadow-sm p-4 mb-4">
+    <form method="get" action="{{ base_url }}/reports/loans" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Fecha Inicial</label>
+            <input type="date" name="start_date" class="form-control" value="{{ start_date }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Fecha Final</label>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Estado del Préstamo</label>
+            <select name="status" class="form-select">
+                <option value="all" {{ status == 'all' ? 'selected' : '' }}>Todos los estados</option>
+                <option value="active" {{ status == 'active' ? 'selected' : '' }}>Activo</option>
+                <option value="paid" {{ status == 'paid' ? 'selected' : '' }}>Pagado</option>
+                <option value="overdue" {{ status == 'overdue' ? 'selected' : '' }}>En Mora</option>
+                <option value="pending" {{ status == 'pending' ? 'selected' : '' }}>Pendiente</option>
+                <option value="cancelled" {{ status == 'cancelled' ? 'selected' : '' }}>Cancelado</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Cliente (Opcional)</label>
+            <select name="client_id" class="form-select">
+                <option value="0">-- Todos los clientes --</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}" {{ client_id == c.id ? 'selected' : '' }}>
+                    {{ c.name }} {{ c.lastname }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 d-flex justify-content-end gap-2 pt-2">
+            <a href="{{ base_url }}/reports/loans" class="btn btn-light fw-bold">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+            </a>
+            <button type="submit" class="btn btn-indigo text-white fw-bold px-4">
+                <i class="bi bi-funnel me-1"></i> Filtrar Préstamos
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tarjetas de Resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-3 bg-white text-center">
+            <span class="text-muted small fw-bold d-block">CRÉDITOS ENCONTRADOS</span>
+            <h3 class="fw-bold text-indigo-900 mb-0 mt-1">{{ loans|length }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-3 bg-white text-center">
+            <span class="text-muted small fw-bold d-block">TOTAL CAPITAL PRESTADO</span>
+            <h3 class="fw-bold text-dark mb-0 mt-1">{{ currency }}{{ total_amount|number_format(2) }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-3 bg-white text-center">
+            <span class="text-muted small fw-bold d-block">TOTAL CARTERA A RECAUDAR</span>
+            <h3 class="fw-bold text-indigo-600 mb-0 mt-1">{{ currency }}{{ total_expected|number_format(2) }}</h3>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Resultados -->
+<div class="card border-0 shadow-sm p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle datatable mb-0">
+            <thead class="table-light">
+                <tr class="small text-muted text-uppercase">
+                    <th style="width: 70px;">Folio</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Producto</th>
+                    <th class="text-end">Capital</th>
+                    <th class="text-center">Tasa</th>
+                    <th class="text-center">Plazo</th>
+                    <th class="text-end">Total a Pagar</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-end pe-3">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="small">
+                {% for l in loans %}
+                <tr>
+                    <td class="fw-bold text-indigo-700">#{{ l.id }}</td>
+                    <td class="text-muted">{{ l.created_at|date('d/m/Y') }}</td>
+                    <td>
+                        <div class="fw-bold">{{ l.client_name }} {{ l.client_lastname }}</div>
+                        <div class="text-muted small">{{ l.client_document }}</div>
+                    </td>
+                    <td class="text-muted">{{ l.product_name }}</td>
+                    <td class="text-end fw-bold">{{ currency }}{{ l.amount|number_format(2) }}</td>
+                    <td class="text-center">{{ l.interest_rate }}%</td>
+                    <td class="text-center">
+                        {{ l.term }} cuotas
+                        <div class="text-muted small">
+                            ({{ l.frequency == 1 ? 'Diario' : (l.frequency == 2 ? 'Semanal' : (l.frequency == 3 ? 'Quincenal' : 'Mensual')) }})
+                        </div>
+                    </td>
+                    <td class="text-end fw-bold text-indigo-600">{{ currency }}{{ l.total_amount|number_format(2) }}</td>
+                    <td class="text-center">
+                        <span class="badge {{ l.status == 'active' ? 'bg-success' : (l.status == 'overdue' ? 'bg-danger' : (l.status == 'paid' ? 'bg-primary' : 'bg-warning text-dark')) }}">
+                            {{ l.status == 'active' ? 'Activo' : (l.status == 'overdue' ? 'En Mora' : (l.status == 'paid' ? 'Pagado' : (l.status == 'cancelled' ? 'Cancelado' : 'Pendiente'))) }}
+                        </span>
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{{ base_url }}/loans/{{ l.id }}/pdf" target="_blank" class="btn btn-light btn-sm text-danger" title="Descargar PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+                        <a href="{{ base_url }}/loans/{{ l.id }}" class="btn btn-light btn-sm text-primary" title="Ver Detalle"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

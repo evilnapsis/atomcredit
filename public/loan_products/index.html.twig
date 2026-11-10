@@ -1,0 +1,267 @@
+{% extends "layouts/main.html.twig" %}
+
+{% set active_menu = 'loan_products' %}
+
+{% block title %}Productos de Préstamo - AtomCredit{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">Productos de Préstamo</h1>
+            </div>
+            <div class="ms-auto">
+                <button class="btn btn-indigo shadow-sm fw-bold text-white px-4" data-coreui-toggle="modal" data-coreui-target="#newProductModal">
+                    <i class="bi bi-plus-lg me-1"></i> Nuevo Producto
+                </button>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 datatable">
+                        <thead class="bg-light text-muted small">
+                            <tr>
+                                <th class="ps-4">Producto</th>
+                                <th>Tasa de Interés</th>
+                                <th>Monto</th>
+                                <th>Plazo (cuotas)</th>
+                                <th>Frecuencia</th>
+                                <th class="pe-4 text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in products %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">{{ p.name }}</div>
+                                    <div class="small text-muted">{{ p.description }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-indigo-100 text-indigo-700 fw-bold fs-6">{{ p.interest_rate }}%</span>
+                                    <div class="small text-muted">{{ p.interest_period == 1 ? 'Mensual' : 'Anual' }}</div>
+                                </td>
+                                <td class="small">
+                                    <div>Mín: <span class="fw-bold">{{ currency }}{{ p.min_amount|number_format(2) }}</span></div>
+                                    <div>Máx: <span class="fw-bold">{{ currency }}{{ p.max_amount|number_format(2) }}</span></div>
+                                </td>
+                                <td class="small">
+                                    <div>Mín: {{ p.min_term }} | Máx: {{ p.max_term }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-emerald-100 text-emerald-700">
+                                        {{ p.frequency == 1 ? 'Diario' : (p.frequency == 2 ? 'Semanal' : (p.frequency == 3 ? 'Quincenal' : 'Mensual')) }}
+                                    </span>
+                                </td>
+                                <td class="pe-4 text-end">
+                                    <button class="btn btn-light btn-sm" onclick="editProduct({{ p.id }})"><i class="bi bi-pencil"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo Producto -->
+<div class="modal fade" id="newProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Nuevo Producto de Préstamo</h5>
+                <button type="button" class="btn-close" data-coreui-dismiss="modal"></button>
+            </div>
+            <form id="add-product-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Nombre *</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Frecuencia *</label>
+                            <select name="frequency" class="form-select" required>
+                                <option value="1">Diario</option>
+                                <option value="2">Semanal</option>
+                                <option value="3">Quincenal</option>
+                                <option value="4" selected>Mensual</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Descripción</label>
+                            <textarea name="description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Tasa de Interés (%) *</label>
+                            <input type="number" step="0.01" name="interest_rate" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Período *</label>
+                            <select name="interest_period" class="form-select">
+                                <option value="1">Mensual</option>
+                                <option value="2">Anual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Monto Mínimo</label>
+                            <input type="number" step="0.01" name="min_amount" class="form-control" value="0.00">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Monto Máximo</label>
+                            <input type="number" step="0.01" name="max_amount" class="form-control" value="0.00">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Plazo Mínimo (cuotas)</label>
+                            <input type="number" name="min_term" class="form-control" value="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Plazo Máximo (cuotas)</label>
+                            <input type="number" name="max_term" class="form-control" value="12">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" data-coreui-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo text-white fw-bold px-4">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Producto -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Editar Producto</h5>
+                <button type="button" class="btn-close" data-coreui-dismiss="modal"></button>
+            </div>
+            <form id="edit-product-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="id" id="edit_product_id">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Nombre *</label>
+                            <input type="text" name="name" id="edit_product_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Frecuencia *</label>
+                            <select name="frequency" id="edit_product_frequency" class="form-select" required>
+                                <option value="1">Diario</option>
+                                <option value="2">Semanal</option>
+                                <option value="3">Quincenal</option>
+                                <option value="4">Mensual</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Descripción</label>
+                            <textarea name="description" id="edit_product_description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Tasa de Interés (%) *</label>
+                            <input type="number" step="0.01" name="interest_rate" id="edit_product_rate" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Período *</label>
+                            <select name="interest_period" id="edit_product_period" class="form-select">
+                                <option value="1">Mensual</option>
+                                <option value="2">Anual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Monto Mínimo</label>
+                            <input type="number" step="0.01" name="min_amount" id="edit_product_min_amount" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Monto Máximo</label>
+                            <input type="number" step="0.01" name="max_amount" id="edit_product_max_amount" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Plazo Mínimo (cuotas)</label>
+                            <input type="number" name="min_term" id="edit_product_min_term" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Plazo Máximo (cuotas)</label>
+                            <input type="number" name="max_term" id="edit_product_max_term" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" data-coreui-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo text-white fw-bold px-4">Actualizar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('add-product-form').onsubmit = function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('{{ base_url }}/loan_products/create', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.success){
+            Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'El producto fue creado.', timer: 2000, showConfirmButton: false })
+            .then(() => { window.location.reload(); });
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo guardar.' });
+        }
+    });
+};
+
+function editProduct(id){
+    fetch('{{ base_url }}/loan_products/' + id + '/json')
+    .then(r => r.json())
+    .then(p => {
+        document.getElementById('edit_product_id').value = p.id;
+        document.getElementById('edit_product_name').value = p.name;
+        document.getElementById('edit_product_frequency').value = p.frequency;
+        document.getElementById('edit_product_description').value = p.description || '';
+        document.getElementById('edit_product_rate').value = p.interest_rate;
+        document.getElementById('edit_product_period').value = p.interest_period;
+        document.getElementById('edit_product_min_amount').value = p.min_amount;
+        document.getElementById('edit_product_max_amount').value = p.max_amount;
+        document.getElementById('edit_product_min_term').value = p.min_term;
+        document.getElementById('edit_product_max_term').value = p.max_term;
+
+        const myModal = new coreui.Modal(document.getElementById('editProductModal'));
+        myModal.show();
+    });
+}
+
+document.getElementById('edit-product-form').onsubmit = function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('{{ base_url }}/loan_products/update', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.success){
+            Swal.fire({ icon: 'success', title: '¡Actualizado!', text: 'El producto fue modificado.', timer: 2000, showConfirmButton: false })
+            .then(() => { window.location.reload(); });
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo actualizar.' });
+        }
+    });
+};
+</script>
+{% endblock %}

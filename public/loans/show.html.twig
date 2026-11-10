@@ -1,0 +1,261 @@
+{% extends "layouts/main.html.twig" %}
+
+{% set active_menu = 'loans' %}
+
+{% block title %}Detalle de Préstamo #{{ loan.id }} - AtomCredit{% endblock %}
+
+{% block content %}
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <a href="{{ base_url }}/loans" class="btn btn-light btn-sm fw-bold"><i class="bi bi-arrow-left me-1"></i> Volver</a>
+    <a href="{{ base_url }}/loans/{{ loan.id }}/pdf" target="_blank" class="btn btn-danger btn-sm fw-bold shadow-sm">
+        <i class="bi bi-file-earmark-pdf me-1"></i> Descargar PDF / Cronograma
+    </a>
+</div>
+
+<!-- Header de préstamo -->
+<div class="row g-3 mb-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div>
+                    <h4 class="fw-bold mb-0">{{ client.name }} {{ client.lastname }}</h4>
+                    <div class="text-muted small">
+                        <i class="bi bi-telephone me-1"></i>{{ client.phone }}
+                        &nbsp;·&nbsp;
+                        <i class="bi bi-card-text me-1"></i>{{ client.document }}
+                    </div>
+                </div>
+                <div class="ms-auto">
+                    <span class="badge {{ loan.status == 'active' ? 'bg-success' : (loan.status == 'overdue' ? 'bg-danger' : (loan.status == 'paid' ? 'bg-primary' : 'bg-warning text-dark')) }} fs-6 px-3 py-2">
+                        {{ loan.status == 'active' ? 'Activo' : (loan.status == 'overdue' ? 'En Mora' : (loan.status == 'paid' ? 'Pagado' : (loan.status == 'cancelled' ? 'Cancelado' : 'Pendiente'))) }}
+                    </span>
+                </div>
+            </div>
+            <div class="row g-2 text-center">
+                <div class="col">
+                    <div class="small text-muted">Producto</div>
+                    <div class="fw-bold small">{{ loan.product_name }}</div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Capital</div>
+                    <div class="fw-bold">{{ currency }}{{ loan.amount|number_format(2) }}</div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Interés Total</div>
+                    <div class="fw-bold text-amber-700">{{ currency }}{{ loan.total_interest|number_format(2) }}</div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Total a Pagar</div>
+                    <div class="fw-bold text-indigo-600">{{ currency }}{{ loan.total_amount|number_format(2) }}</div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Cuota</div>
+                    <div class="fw-bold text-emerald-700">{{ currency }}{{ loan.installment_amount|number_format(2) }}</div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Frecuencia</div>
+                    <div class="fw-bold small">
+                        {{ loan.frequency == 1 ? 'Diario' : (loan.frequency == 2 ? 'Semanal' : (loan.frequency == 3 ? 'Quincenal' : 'Mensual')) }}
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="small text-muted">Plazo</div>
+                    <div class="fw-bold">{{ loan.term }} cuotas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 h-100 d-flex flex-column justify-content-between">
+            <div>
+                <div class="small text-muted mb-1">Pagado</div>
+                <div class="h4 fw-bold text-emerald-700">{{ currency }}{{ total_paid|number_format(2) }}</div>
+                {% set pct = loan.total_amount > 0 ? (total_paid / loan.total_amount) * 100 : 0 %}
+                <div class="progress mb-3" style="height:8px;">
+                    <div class="progress-bar bg-success" style="width:{{ pct > 100 ? 100 : pct }}%"></div>
+                </div>
+                <div class="small text-muted mb-1">Saldo Pendiente</div>
+                <div class="h5 fw-bold text-danger">{{ currency }}{{ pending_balance|number_format(2) }}</div>
+            </div>
+            {% if loan.status != 'paid' and loan.status != 'cancelled' %}
+            <button class="btn btn-indigo text-white fw-bold w-100 mt-3" data-coreui-toggle="modal" data-coreui-target="#payModal">
+                <i class="bi bi-cash-coin me-1"></i> Registrar Pago
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de amortización -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
+        <h6 class="fw-bold mb-0">Plan de Pagos</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="bg-light text-muted">
+                    <tr>
+                        <th class="ps-4">Cuota</th>
+                        <th>Vencimiento</th>
+                        <th>Capital</th>
+                        <th>Interés</th>
+                        <th>Total Cuota</th>
+                        <th>Pagado</th>
+                        <th>Saldo</th>
+                        <th class="pe-4 text-end">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in schedule %}
+                    <tr class="{{ s.status == 'overdue' ? 'table-danger' : (s.status == 'paid' ? 'table-success' : '') }}">
+                        <td class="ps-4 fw-bold">#{{ s.installment_number }}</td>
+                        <td>{{ s.due_date }}</td>
+                        <td>{{ currency }}{{ s.principal|number_format(2) }}</td>
+                        <td>{{ currency }}{{ s.interest|number_format(2) }}</td>
+                        <td class="fw-bold">{{ currency }}{{ s.amount|number_format(2) }}</td>
+                        <td class="text-emerald-700">{{ currency }}{{ s.paid_amount|number_format(2) }}</td>
+                        <td>{{ currency }}{{ s.balance|number_format(2) }}</td>
+                        <td class="pe-4 text-end">
+                            <span class="badge {{ s.status == 'paid' ? 'bg-success' : (s.status == 'overdue' ? 'bg-danger' : (s.status == 'partial' ? 'bg-warning text-dark' : 'bg-secondary')) }}">
+                                {{ s.status == 'paid' ? 'Pagada' : (s.status == 'overdue' ? 'Vencida' : (s.status == 'partial' ? 'Parcial' : 'Pendiente')) }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Historial de pagos -->
+{% if payments|length > 0 %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
+        <h6 class="fw-bold mb-0">Historial de Pagos Recibidos</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="bg-light text-muted">
+                    <tr>
+                        <th class="ps-4">#</th>
+                        <th>Monto</th>
+                        <th>Método</th>
+                        <th>Cuota Aplicada</th>
+                        <th>Notas</th>
+                        <th class="pe-4">Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td class="ps-4 text-muted">{{ p.id }}</td>
+                        <td class="fw-bold text-emerald-700">{{ currency }}{{ p.amount|number_format(2) }}</td>
+                        <td>{{ p.payment_method_name }}</td>
+                        <td>{{ p.loan_schedule_id ? 'Cuota #' ~ p.loan_schedule_id : 'General' }}</td>
+                        <td class="text-muted">{{ p.notes }}</td>
+                        <td class="pe-4 text-muted">{{ p.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: Registrar Pago -->
+<div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Registrar Pago</h5>
+                <button type="button" class="btn-close" data-coreui-dismiss="modal"></button>
+            </div>
+            <form id="pay-loan-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="loan_id" value="{{ loan.id }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Cuota a Abonar</label>
+                        <select name="loan_schedule_id" id="pay_schedule_sel" class="form-select" onchange="updatePayAmount(this)">
+                            <option value="">-- Pago libre o general --</option>
+                            {% for s in schedule %}
+                                {% if s.status != 'paid' %}
+                                <option value="{{ s.id }}" data-amount="{{ s.amount - s.paid_amount }}" {{ (next_pending and next_pending.id == s.id) ? 'selected' : '' }}>
+                                    Cuota #{{ s.installment_number }} (Vence: {{ s.due_date }} - Saldo: {{ currency }}{{ (s.amount - s.paid_amount)|number_format(2) }})
+                                </option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Monto *</label>
+                            <input type="number" step="0.01" name="amount" id="pay_amount" class="form-control" required value="{{ next_pending ? (next_pending.amount - next_pending.paid_amount) : loan.installment_amount }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Método de Pago *</label>
+                            <select name="payment_method_id" class="form-select" required>
+                                {% for pm in payment_methods %}
+                                <option value="{{ pm.id }}">{{ pm.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Notas</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Observaciones o referencia de pago..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light fw-bold" data-coreui-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo text-white fw-bold px-4">Guardar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updatePayAmount(sel){
+    const opt = sel.options[sel.selectedIndex];
+    if(opt && opt.dataset.amount){
+        document.getElementById('pay_amount').value = parseFloat(opt.dataset.amount).toFixed(2);
+    }
+}
+
+document.getElementById('pay-loan-form').onsubmit = function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('{{ base_url }}/loans/pay', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.success){
+            Swal.fire({
+                icon: 'success',
+                title: '¡Pago registrado!',
+                text: res.message,
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo registrar el pago.' });
+        }
+    })
+    .catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error al procesar la solicitud.' });
+    });
+};
+</script>
+{% endblock %}
